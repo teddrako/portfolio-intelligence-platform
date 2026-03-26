@@ -12,7 +12,9 @@
     "UPSTASH_REDIS_REST_TOKEN",
     "GEMINI_API_KEY",
     "AI_PROVIDER",
-    "GEMINI_MODEL"
+    "GEMINI_MODEL",
+    "POSTHOG_KEY",
+    "POSTHOG_HOST"
   ],
   "tasks": {
     "build": {

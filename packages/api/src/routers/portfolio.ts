@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../trpc";
+import { posthog } from "../lib/posthog";
 import {
   getDefaultPortfolio,
   getCashBalance,
@@ -190,6 +191,13 @@ export const portfolioRouter = router({
         benchmarkTicker: input.benchmarkTicker,
         isDefault: false,
       });
+
+      posthog.capture({
+        distinctId: ctx.userId,
+        event: "portfolio_created",
+        properties: { portfolioId: id, name: input.name, currency: input.currency },
+      });
+
       return { id };
     }),
 
@@ -227,5 +235,11 @@ export const portfolioRouter = router({
         .limit(1);
       if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND" });
       await db.delete(portfolios).where(eq(portfolios.id, input.portfolioId));
+
+      posthog.capture({
+        distinctId: ctx.userId,
+        event: "portfolio_deleted",
+        properties: { portfolioId: input.portfolioId },
+      });
     }),
 });

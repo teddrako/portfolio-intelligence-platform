@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { protectedProcedure, router } from "../trpc";
+import { posthog } from "../lib/posthog";
 import { db } from "@pip/db/db";
 import { aiReports, reportTypes } from "@pip/db/schema";
 import { checkRateLimit, acquireJobLock, releaseJobLock, withCache, invalidateCache } from "../lib/redis";
@@ -154,6 +155,12 @@ export const aiReportsRouter = router({
             .update(aiReports)
             .set({ status: "failed", content: `Generation failed: ${String(aiErr)}` })
             .where(eq(aiReports.id, reportId));
+          posthog.capture({
+            distinctId: ctx.userId,
+            event: "ai_report_generation_failed",
+            properties: { reportType: input.type, reportId, portfolioId: resolvedPortfolioId },
+          });
+          posthog.captureException(aiErr instanceof Error ? aiErr : new Error(String(aiErr)), ctx.userId);
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI generation failed." });
         }
 
@@ -164,6 +171,12 @@ export const aiReportsRouter = router({
 
         // ── ⑤ Bust the user's cached list so it reflects the new report ───────
         await invalidateCache(`cache:ai_reports:${ctx.userId}`);
+
+        posthog.capture({
+          distinctId: ctx.userId,
+          event: "ai_report_generated",
+          properties: { reportType: input.type, reportId, portfolioId: resolvedPortfolioId, tokensUsed },
+        });
 
         return {
           reportId,

@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { protectedProcedure, router } from "../trpc";
 import { db } from "@pip/db/db";
+import { posthog } from "../lib/posthog";
 import {
   transactions,
   positions,
@@ -185,6 +186,12 @@ export const transactionsRouter = router({
         await adjustCash(input.portfolioId, portfolio.currency, -(amount + input.fees));
       }
 
+      posthog.capture({
+        distinctId: ctx.userId,
+        event: "transaction_bought",
+        properties: { ticker, shares: input.shares, price: input.price, amount, fees: input.fees, portfolioId: input.portfolioId },
+      });
+
       return { positionId: pos.id, transactionId: txnId };
     } else {
       const posId = newId("pos");
@@ -217,6 +224,12 @@ export const transactionsRouter = router({
       if (input.adjustCash) {
         await adjustCash(input.portfolioId, portfolio.currency, -(amount + input.fees));
       }
+
+      posthog.capture({
+        distinctId: ctx.userId,
+        event: "transaction_bought",
+        properties: { ticker, shares: input.shares, price: input.price, amount, fees: input.fees, portfolioId: input.portfolioId },
+      });
 
       return { positionId: posId, transactionId: txnId };
     }
@@ -288,6 +301,12 @@ export const transactionsRouter = router({
       await adjustCash(input.portfolioId, portfolio.currency, amount - input.fees);
     }
 
+    posthog.capture({
+      distinctId: ctx.userId,
+      event: "transaction_sold",
+      properties: { ticker: input.ticker.toUpperCase(), shares: input.shares, price: input.price, amount, fees: input.fees, portfolioId: input.portfolioId },
+    });
+
     return { positionId: pos.id, transactionId: txnId };
   }),
 
@@ -326,6 +345,12 @@ export const transactionsRouter = router({
     });
 
     await adjustCash(input.portfolioId, currency, delta);
+
+    posthog.capture({
+      distinctId: ctx.userId,
+      event: isWithdrawal ? "cash_withdrawn" : "cash_deposited",
+      properties: { amount: input.amount, currency, portfolioId: input.portfolioId },
+    });
 
     return { transactionId: txnId };
   }),
