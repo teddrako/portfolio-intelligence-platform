@@ -147,7 +147,7 @@ export const aiReportsRouter = router({
         let tokensUsed: number | null = null;
 
         try {
-          const result = await callAI(prompt);
+          const result = await callAI(prompt, ctx.userId);
           content = result.content;
           tokensUsed = result.tokensUsed;
         } catch (aiErr) {

@@ -21,7 +21,8 @@
   },
   "dependencies": {
     "@pip/db": "workspace:*",
-    "better-auth": "^1.2.5"
+    "better-auth": "^1.2.5",
+    "posthog-node": "^5.0.0"
   },
   "devDependencies": {
     "@pip/config": "workspace:*",

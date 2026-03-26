@@ -13,45 +13,48 @@ export default async function DashboardPage() {
   const [summary, holdings, recentTxns, news] = await Promise.all([
     caller.portfolio.summary(),
     caller.portfolio.holdings(),
-    caller.portfolio.transactions({ limit: 10 }),
-    caller.news.list({ limit: 6 }),
+    caller.portfolio.transactions({ limit: 8 }),
+    caller.news.list({ limit: 8 }),
   ]);
 
-  if (!summary) {
-    return <EmptyPortfolio />;
-  }
+  if (!summary) return <EmptyPortfolio />;
 
   const dateStr = new Date().toLocaleDateString("en-US", {
     weekday: "long",
-    month: "long",
-    day: "numeric",
+    month:   "long",
+    day:     "numeric",
   });
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
+    <div className="space-y-5 p-5 sm:p-6">
+
+      {/* ── Page header ── */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-100">{summary.portfolioName}</h1>
-          <p className="mt-0.5 text-sm text-gray-500">{dateStr}</p>
+          <h1 className="text-base font-semibold text-slate-100">
+            {summary.portfolioName}
+          </h1>
+          <p className="mt-0.5 text-xs text-slate-600">{dateStr}</p>
         </div>
         <AddTransactionButton portfolioId={summary.portfolioId} />
       </div>
 
-      {/* Summary stats */}
+      {/* ── Hero: portfolio value + metrics ── */}
       <PortfolioSummary summary={summary} />
 
-      {/* Holdings + news row */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
+      {/* ── Main bento row: holdings + news ── */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
+        {/* Holdings takes 3/5 */}
+        <div className="xl:col-span-3">
           <HoldingsTable holdings={holdings} />
         </div>
-        <div>
+        {/* Intelligence stream takes 2/5 */}
+        <div className="xl:col-span-2">
           <NewsFeed news={news} />
         </div>
       </div>
 
-      {/* Recent transactions */}
+      {/* ── Recent activity ── */}
       <RecentTransactions transactions={recentTxns} />
     </div>
   );

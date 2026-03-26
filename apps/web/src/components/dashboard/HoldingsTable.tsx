@@ -1,119 +1,232 @@
+"use client";
+
 import Link from "next/link";
-import { Badge, Card, CardHeader, CardTitle } from "@pip/ui";
 import type { PositionWithMetrics } from "@pip/api";
 
-function fmt(n: number, opts?: Intl.NumberFormatOptions) {
-  return new Intl.NumberFormat("en-US", opts).format(n);
-}
+// ─── Formatters ───────────────────────────────────────────────────────────────
 
 function fmtUSD(n: number, decimals = 2) {
-  return fmt(n, {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  });
+  }).format(n);
 }
 
-function fmtPct(n: number) {
-  return `${n >= 0 ? "+" : ""}${fmt(n, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+function fmtPct(n: number, showSign = true) {
+  const sign = showSign ? (n >= 0 ? "+" : "") : "";
+  return `${sign}${n.toFixed(2)}%`;
 }
+
+function fmtShares(n: number) {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(n);
+}
+
+// ─── Asset class chip ─────────────────────────────────────────────────────────
+
+function AssetChip({ type }: { type: string }) {
+  const map: Record<string, string> = {
+    equity:    "chip-equity",
+    etf:       "chip-etf",
+    bond:      "chip-bond",
+    crypto:    "chip-crypto",
+    commodity: "chip-commodity",
+    cash:      "chip-cash",
+  };
+  const cls = map[type.toLowerCase()] ?? "chip-cash";
+  return (
+    <span className={`${cls} rounded-full px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide`}>
+      {type.toUpperCase()}
+    </span>
+  );
+}
+
+// ─── Weight bar ───────────────────────────────────────────────────────────────
+
+function WeightBar({ pct }: { pct: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-[3px] w-12 overflow-hidden rounded-full bg-white/[0.07]">
+        <div
+          className="h-full rounded-full bg-indigo-500/50"
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+      </div>
+      <span className="num text-xs text-slate-500">{pct.toFixed(1)}%</span>
+    </div>
+  );
+}
+
+// ─── Table ────────────────────────────────────────────────────────────────────
+
+const COLS = [
+  { label: "Security",     align: "left"  },
+  { label: "Shares",       align: "right" },
+  { label: "Avg Cost",     align: "right" },
+  { label: "Price",        align: "right" },
+  { label: "Mkt Value",    align: "right" },
+  { label: "Unrealized",   align: "right" },
+  { label: "Day",          align: "right" },
+  { label: "Weight",       align: "right" },
+];
 
 export function HoldingsTable({ holdings }: { holdings: PositionWithMetrics[] }) {
   if (holdings.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Holdings</CardTitle>
-        </CardHeader>
-        <p className="py-8 text-center text-sm text-gray-500">
-          No open positions. Use the Add Transaction button to record your first buy.
+      <div
+        className="rounded-2xl p-8 text-center"
+        style={{
+          background: "#0D0F1A",
+          border: "1px solid rgba(255,255,255,0.07)",
+        }}
+      >
+        <p className="text-sm text-slate-500">
+          No open positions.{" "}
+          <span className="text-slate-400">Add a transaction to get started.</span>
         </p>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card padding="none">
-      <CardHeader className="px-4 pt-4">
-        <CardTitle>Holdings</CardTitle>
-        <span className="text-xs text-gray-500">{holdings.length} positions</span>
-      </CardHeader>
+    <div
+      className="overflow-hidden rounded-2xl"
+      style={{
+        background: "#0D0F1A",
+        border: "1px solid rgba(255,255,255,0.07)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)",
+      }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+      >
+        <h2 className="text-[13px] font-semibold text-slate-200">Holdings</h2>
+        <span className="overline">{holdings.length} positions</span>
+      </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-800">
-              {["Security", "Shares", "Avg Cost", "Price", "Market Value", "P&L", "Day", "Weight"].map(
-                (h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ),
-              )}
+            <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              {COLS.map(({ label, align }) => (
+                <th
+                  key={label}
+                  className={`overline px-4 py-2.5 ${align === "right" ? "text-right" : "text-left"} whitespace-nowrap`}
+                >
+                  {label}
+                </th>
+              ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800/60">
-            {holdings.map((h) => (
-              <tr key={h.positionId} className="group hover:bg-gray-800/30 transition-colors">
-                <td className="px-4 py-3">
-                  <Link href={`/positions/${h.ticker}`} className="block">
-                    <div>
-                      <span className="font-medium text-gray-100 group-hover:text-blue-400 transition-colors">
-                        {h.ticker}
-                      </span>
-                      <Badge variant="default" className="ml-2 text-[10px]">
-                        {h.assetClass.toUpperCase()}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">{h.name}</div>
-                  </Link>
-                </td>
-                <td className="px-4 py-3 tabular-nums text-gray-300">
-                  {fmt(h.shares, { maximumFractionDigits: 4 })}
-                </td>
-                <td className="px-4 py-3 tabular-nums text-gray-300">{fmtUSD(h.avgCostBasis)}</td>
-                <td className="px-4 py-3 tabular-nums text-gray-100 font-medium">
-                  {fmtUSD(h.currentPrice)}
-                </td>
-                <td className="px-4 py-3 tabular-nums text-gray-100">{fmtUSD(h.marketValue, 0)}</td>
-                <td className="px-4 py-3 tabular-nums">
-                  <div className={h.unrealizedPnl >= 0 ? "text-emerald-400" : "text-red-400"}>
-                    {h.unrealizedPnl >= 0 ? "+" : ""}
-                    {fmtUSD(h.unrealizedPnl, 0)}
-                  </div>
-                  <div
-                    className={`text-xs ${h.unrealizedPnlPct >= 0 ? "text-emerald-500" : "text-red-500"}`}
-                  >
-                    {fmtPct(h.unrealizedPnlPct)}
-                  </div>
-                </td>
-                <td
-                  className={`px-4 py-3 tabular-nums text-sm ${h.dailyChangePct >= 0 ? "text-emerald-400" : "text-red-400"}`}
+
+          <tbody>
+            {holdings.map((h, i) => {
+              const isLast = i === holdings.length - 1;
+              const dayUp  = h.dailyChangePct  >= 0;
+              const pnlUp  = h.unrealizedPnl   >= 0;
+
+              return (
+                <tr
+                  key={h.positionId}
+                  className="group transition-colors duration-100"
+                  style={
+                    isLast
+                      ? undefined
+                      : { borderBottom: "1px solid rgba(255,255,255,0.04)" }
+                  }
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background =
+                      "rgba(255,255,255,0.025)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = "";
+                  }}
                 >
-                  {fmtPct(h.dailyChangePct)}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-1 flex-1 rounded-full bg-gray-800 max-w-16">
-                      <div
-                        className="h-1 rounded-full bg-blue-500"
-                        style={{ width: `${Math.min(h.portfolioWeight, 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-xs tabular-nums text-gray-400">
-                      {fmt(h.portfolioWeight, { maximumFractionDigits: 1 })}%
+                  {/* Security */}
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/positions/${h.ticker}`}
+                      className="block group/link"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="num text-[13px] font-semibold text-slate-100 group-hover/link:text-indigo-300 transition-colors">
+                          {h.ticker}
+                        </span>
+                        <AssetChip type={h.assetClass} />
+                      </div>
+                      <p className="mt-0.5 max-w-[160px] truncate text-[11px] text-slate-600">
+                        {h.name}
+                      </p>
+                    </Link>
+                  </td>
+
+                  {/* Shares */}
+                  <td className="px-4 py-3 text-right">
+                    <span className="num text-sm text-slate-400">
+                      {fmtShares(h.shares)}
                     </span>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+
+                  {/* Avg Cost */}
+                  <td className="px-4 py-3 text-right">
+                    <span className="num text-sm text-slate-500">
+                      {fmtUSD(h.avgCostBasis)}
+                    </span>
+                  </td>
+
+                  {/* Current Price */}
+                  <td className="px-4 py-3 text-right">
+                    <span className="num text-sm font-medium text-slate-200">
+                      {fmtUSD(h.currentPrice)}
+                    </span>
+                  </td>
+
+                  {/* Market Value */}
+                  <td className="px-4 py-3 text-right">
+                    <span className="num text-sm font-medium text-slate-200">
+                      {fmtUSD(h.marketValue, 0)}
+                    </span>
+                  </td>
+
+                  {/* Unrealized P&L */}
+                  <td className="px-4 py-3 text-right">
+                    <span className={`num block text-sm font-semibold ${pnlUp ? "text-gain" : "text-loss"}`}>
+                      {h.unrealizedPnl >= 0 ? "+" : "−"}
+                      {fmtUSD(Math.abs(h.unrealizedPnl), 0)}
+                    </span>
+                    <span className={`num text-[10px] ${pnlUp ? "text-gain/60" : "text-loss/60"}`}>
+                      {fmtPct(h.unrealizedPnlPct)}
+                    </span>
+                  </td>
+
+                  {/* Day change */}
+                  <td className="px-4 py-3 text-right">
+                    <span
+                      className="num inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-semibold"
+                      style={{
+                        background: dayUp
+                          ? "rgba(52,211,153,0.08)"
+                          : "rgba(251,113,133,0.08)",
+                        color: dayUp ? "#34D399" : "#FB7185",
+                      }}
+                    >
+                      {fmtPct(h.dailyChangePct)}
+                    </span>
+                  </td>
+
+                  {/* Weight */}
+                  <td className="px-4 py-3 text-right">
+                    <WeightBar pct={h.portfolioWeight} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-    </Card>
+    </div>
   );
 }
