@@ -1,12 +1,36 @@
 {
   "name": "portfolio-intelligence-platform",
-  "module": "index.ts",
-  "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:reset": "bun packages/db/src/scripts/reset.ts",
+    "db:seed": "bun packages/db/src/scripts/seed.ts",
+    "db:studio": "drizzle-kit studio"
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "devDependencies": {
+    "dotenv": "^17.3.1",
+    "drizzle-kit": "^0.31.10",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "pnpm": {
+    "overrides": {
+      "@types/react": "^19.0.0",
+      "@types/react-dom": "^19.0.0",
+      "drizzle-orm": "^0.45.1"
+    }
+  },
+  "dependencies": {
+    "@google/genai": "^1.46.0",
+    "drizzle-orm": "^0.45.1",
+    "postgres": "^3.4.8"
   }
 }

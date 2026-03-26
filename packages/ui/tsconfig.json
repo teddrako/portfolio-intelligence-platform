@@ -1,0 +1,9 @@
+{
+  "extends": "@pip/config/typescript/base",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}

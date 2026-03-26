@@ -1,0 +1,39 @@
+{
+  "name": "@pip/db",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./db": {
+      "types": "./src/db.ts",
+      "default": "./src/db.ts"
+    },
+    "./mock": {
+      "types": "./src/mock/index.ts",
+      "default": "./src/mock/index.ts"
+    },
+    "./schema": {
+      "types": "./src/schema/index.ts",
+      "default": "./src/schema/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.1",
+    "dotenv": "^16.4.7",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@pip/config": "workspace:*",
+    "drizzle-kit": "^0.30.2",
+    "typescript": "^5.7.3"
+  }
+}

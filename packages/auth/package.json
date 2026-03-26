@@ -1,0 +1,30 @@
+{
+  "name": "@pip/auth",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "default": "./src/server.ts"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./src/client.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pip/db": "workspace:*",
+    "better-auth": "^1.2.5"
+  },
+  "devDependencies": {
+    "@pip/config": "workspace:*",
+    "typescript": "^5.7.3"
+  }
+}

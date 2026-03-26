@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Portfolio Intelligence",
+    "slug": "pip-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "pip",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pip.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0f1e"
+      },
+      "package": "com.pip.mobile"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
