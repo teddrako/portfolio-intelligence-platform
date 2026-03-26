@@ -5,6 +5,7 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { useState } from "react";
 import type { AppRouter } from "@pip/api";
 import { TRPCProvider } from "@/trpc/client";
+import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 
 function makeQueryClient() {
   return new QueryClient({
@@ -40,10 +41,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
-        {children}
-      </TRPCProvider>
-    </QueryClientProvider>
+    <PostHogProvider>
+      <QueryClientProvider client={queryClient}>
+        <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
+          {children}
+        </TRPCProvider>
+      </QueryClientProvider>
+    </PostHogProvider>
   );
 }
