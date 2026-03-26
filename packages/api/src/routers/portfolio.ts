@@ -37,7 +37,7 @@ function buildPortfolioHistory(holdings: HoldingDTO[]): PriceBarDTO[] {
       const bar = h.priceHistory.find((b) => b.date === date);
       if (bar) value += h.shares * bar.close;
     }
-    return { date, value };
+    return { date, close: value };
   });
 }
 

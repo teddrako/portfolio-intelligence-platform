@@ -6,6 +6,8 @@ import { db } from "@pip/db/db";
 import { aiReports, reportTypes } from "@pip/db/schema";
 import { checkRateLimit, acquireJobLock, releaseJobLock, withCache, invalidateCache } from "../lib/redis";
 import { toReportDTO } from "../dto/reports";
+import { callAI, buildPrompt, AI_MODEL } from "../lib/ai";
+import { getDefaultPortfolio, getHoldings, getCashBalance, getPortfolioSummary } from "../services/portfolio";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -112,32 +114,52 @@ export const aiReportsRouter = router({
           type: input.type,
           title: `${label} — ${dateStr}`,
           prompt: input.prompt ?? null,
-          model: "claude-opus-4-6",
+          model: AI_MODEL,
           status: "pending",
           content: "",
         });
 
-        // ── ④ Run generation (placeholder until AI integration) ───────────────
-        //
-        // In production, push a job onto a queue (Trigger.dev, Inngest, BullMQ…)
-        // and return the reportId so the client can poll for completion.
-        // The job-lock prevents the same report from being enqueued twice.
-        //
-        // For now we resolve synchronously with placeholder markdown.
-        const lines = [
-          `# ${label} — ${dateStr}`,
-          "",
-          "> _This is a placeholder. Wire up the Claude API in the generation job to produce real content._",
-          "",
-          `**Type:** ${label}`,
-          input.ticker ? `**Ticker:** ${input.ticker}` : "",
-          input.portfolioId ? `**Portfolio ID:** ${input.portfolioId}` : "",
-          input.prompt ? `\n**Prompt:** ${input.prompt}` : "",
-        ].filter(Boolean);
+        // ── ④ Fetch portfolio context & generate with Gemini ─────────────────
+        const portfolio = input.portfolioId
+          ? null // caller passed explicit portfolioId; resolved below
+          : await getDefaultPortfolio(ctx.userId);
+
+        const resolvedPortfolioId = input.portfolioId ?? portfolio?.id ?? null;
+
+        const [holdings, summary] = resolvedPortfolioId
+          ? await Promise.all([
+              getHoldings(resolvedPortfolioId),
+              getPortfolioSummary(resolvedPortfolioId, ctx.userId),
+            ])
+          : [[], null];
+
+        const prompt = buildPrompt({
+          type: input.type,
+          ticker: input.ticker,
+          customPrompt: input.prompt,
+          holdings,
+          summary,
+          dateStr,
+        });
+
+        let content: string;
+        let tokensUsed: number | null = null;
+
+        try {
+          const result = await callAI(prompt);
+          content = result.content;
+          tokensUsed = result.tokensUsed;
+        } catch (aiErr) {
+          await db
+            .update(aiReports)
+            .set({ status: "failed", content: `Generation failed: ${String(aiErr)}` })
+            .where(eq(aiReports.id, reportId));
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI generation failed." });
+        }
 
         await db
           .update(aiReports)
-          .set({ status: "completed", content: lines.join("\n") })
+          .set({ status: "completed", content, tokensUsed, model: AI_MODEL })
           .where(eq(aiReports.id, reportId));
 
         // ── ⑤ Bust the user's cached list so it reflects the new report ───────

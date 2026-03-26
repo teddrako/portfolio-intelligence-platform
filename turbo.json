@@ -1,7 +1,19 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalPassThroughEnv": ["DATABASE_URL", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "AUTH_SECRET", "AUTH_URL"],
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "AUTH_SECRET",
+    "AUTH_URL",
+    "BETTER_AUTH_URL",
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+    "GEMINI_API_KEY",
+    "AI_PROVIDER",
+    "GEMINI_MODEL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

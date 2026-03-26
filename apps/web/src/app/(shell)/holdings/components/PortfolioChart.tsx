@@ -7,14 +7,14 @@ interface Props {
 export function PortfolioChart({ history }: Props) {
   if (history.length < 2) return null;
 
-  const base = history[0]!.value;
+  const base = history[0]!.close;
 
   // Compute % return from start for each point
   const points = history.map((h, i) => ({
     x: i,
-    pct: base > 0 ? ((h.value - base) / base) * 100 : 0,
+    pct: base > 0 ? ((h.close - base) / base) * 100 : 0,
     date: h.date,
-    value: h.value,
+    value: h.close,
   }));
 
   const minPct = Math.min(...points.map((p) => p.pct));
