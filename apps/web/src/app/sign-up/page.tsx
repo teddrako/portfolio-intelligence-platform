@@ -2,11 +2,11 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@pip/auth/server";
 import { Suspense } from "react";
-import { SignInForms } from "./SignInForms";
+import { SignUpForm } from "./SignUpForm";
 
-export const metadata = { title: "Sign In — Portfolio Intelligence" };
+export const metadata = { title: "Create Account — Portfolio Intelligence" };
 
-export default async function SignInPage() {
+export default async function SignUpPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (session) redirect("/dashboard");
 
@@ -30,12 +30,12 @@ export default async function SignInPage() {
             </svg>
           </div>
           <div className="text-center">
-            <h1 className="text-[17px] font-semibold text-slate-100">Portfolio Intelligence</h1>
-            <p className="mt-1 text-[13px] text-slate-500">Sign in to your account</p>
+            <h1 className="text-[17px] font-semibold text-slate-100">Create your account</h1>
+            <p className="mt-1 text-[13px] text-slate-500">Start tracking your portfolio</p>
           </div>
         </div>
 
-        {/* Forms */}
+        {/* Form */}
         <div
           className="rounded-2xl p-6"
           style={{
@@ -44,8 +44,8 @@ export default async function SignInPage() {
             boxShadow: "0 8px 32px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)",
           }}
         >
-          <Suspense fallback={<div className="h-48 animate-pulse rounded-lg bg-white/5" />}>
-            <SignInForms />
+          <Suspense fallback={<div className="h-56 animate-pulse rounded-lg bg-white/5" />}>
+            <SignUpForm />
           </Suspense>
         </div>
 
