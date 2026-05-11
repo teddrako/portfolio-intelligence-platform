@@ -106,7 +106,12 @@ export async function getHoldings(portfolioId: string): Promise<PositionWithMetr
 
   const tickers = [...new Set(rows.map((r) => r.ticker))];
   // Prefer prices from seeded DB history; fall back to live provider quotes
-  let quotes = await getLatestPricesFromDB(tickers);
+  let quotes: Awaited<ReturnType<typeof getLatestPricesFromDB>>;
+  try {
+    quotes = await getLatestPricesFromDB(tickers);
+  } catch {
+    quotes = new Map();
+  }
   if (quotes.size === 0) {
     quotes = await getQuotes(tickers);
   }
@@ -264,7 +269,12 @@ export async function getPositionByTicker(portfolioId: string, ticker: string) {
 
   const shares = Number(row.shares);
   const avgCostBasis = Number(row.avgCostBasis);
-  const dbPrices = await getLatestPricesFromDB([row.ticker]);
+  let dbPrices: Awaited<ReturnType<typeof getLatestPricesFromDB>>;
+  try {
+    dbPrices = await getLatestPricesFromDB([row.ticker]);
+  } catch {
+    dbPrices = new Map();
+  }
   const quote = dbPrices.get(row.ticker.toUpperCase()) ?? await getQuote(row.ticker);
   const currentPrice  = quote?.price        ?? avgCostBasis;
   const previousClose = quote?.previousClose ?? currentPrice;

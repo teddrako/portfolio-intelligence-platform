@@ -61,7 +61,13 @@ export async function withCache<T>(
   const redis = getClient();
   if (!redis) return fn();
 
-  const cached = await redis.get<T>(key);
+  let cached: T | null = null;
+  try {
+    cached = await redis.get<T>(key);
+  } catch (err) {
+    console.warn("[redis] cache read failed, bypassing:", err);
+    return fn();
+  }
   if (cached !== null) return cached;
 
   const value = await fn();
