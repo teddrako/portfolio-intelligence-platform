@@ -9,6 +9,7 @@ import {
   Newspaper,
   Calendar,
   Sparkles,
+  ShieldAlert,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { signOut, useSession } from "@pip/auth/client";
 const NAV = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard"    },
   { href: "/holdings",  icon: BarChart3,        label: "Holdings"     },
+  { href: "/risk",      icon: ShieldAlert,      label: "Risk"         },
   { href: "/news",      icon: Newspaper,        label: "Intelligence" },
   { href: "/calendar",  icon: Calendar,         label: "Calendar"     },
   { href: "/reports",   icon: Sparkles,         label: "AI Reports"   },

@@ -5,6 +5,8 @@ import { newsRouter } from "./routers/news";
 import { transactionsRouter } from "./routers/transactions";
 import { aiReportsRouter } from "./routers/ai-reports";
 import { calendarRouter } from "./routers/calendar";
+import { emailRouter } from "./routers/email";
+import { riskRouter } from "./routers/risk";
 
 export const appRouter = router({
   portfolio:    portfolioRouter,
@@ -13,6 +15,8 @@ export const appRouter = router({
   transactions: transactionsRouter,
   aiReports:    aiReportsRouter,
   calendar:     calendarRouter,
+  email:        emailRouter,
+  risk:         riskRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -35,3 +39,4 @@ export type {
   HoldingsWithHistoryDTO,
   ReportDTO,
 } from "./dto";
+export type { RiskMetricsDTO } from "./routers/risk";
