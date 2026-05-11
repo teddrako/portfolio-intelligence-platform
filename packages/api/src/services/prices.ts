@@ -9,6 +9,9 @@
 import { getMarketDataProvider } from "../providers/market-data";
 import { withCache } from "../lib/redis";
 import type { Quote, HistoricalBar } from "../providers/types";
+import { db } from "@pip/db/db";
+import { securities, priceSnapshots } from "@pip/db/schema";
+import { and, desc, eq, gte, inArray } from "drizzle-orm";
 
 export type { Quote, HistoricalBar };
 
@@ -61,6 +64,86 @@ export async function getPriceHistory(
   return withCache(`price_history:${upper}:${days}d`, 3600, () =>
     provider.getPriceHistory(upper, from, to),
   );
+}
+
+/**
+ * Reads the two most recent price_snapshots rows per ticker from the DB and
+ * returns Quote objects. Returns an empty map if no data has been seeded yet.
+ *
+ * Uses a 14-day lookback so weekends and market holidays are handled correctly.
+ */
+export async function getLatestPricesFromDB(
+  tickers: string[],
+): Promise<Map<string, Quote>> {
+  if (tickers.length === 0) return new Map();
+
+  const upper = tickers.map((t) => t.toUpperCase());
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 14);
+  const cutoffStr = cutoff.toISOString().split("T")[0]!;
+
+  const rows = await db
+    .select({
+      ticker: securities.ticker,
+      date: priceSnapshots.date,
+      close: priceSnapshots.close,
+      high: priceSnapshots.high,
+      low: priceSnapshots.low,
+      volume: priceSnapshots.volume,
+    })
+    .from(priceSnapshots)
+    .innerJoin(securities, eq(priceSnapshots.securityId, securities.id))
+    .where(
+      and(
+        inArray(securities.ticker, upper),
+        gte(priceSnapshots.date, cutoffStr),
+      ),
+    )
+    // Order by ticker then date DESC so the first row per ticker = latest close
+    .orderBy(securities.ticker, desc(priceSnapshots.date));
+
+  type Accumulator = {
+    current: number;
+    prev: number | null;
+    high: number;
+    low: number;
+    volume: number;
+  };
+
+  const seen = new Map<string, Accumulator>();
+  for (const row of rows) {
+    const t = row.ticker;
+    if (!seen.has(t)) {
+      seen.set(t, {
+        current: Number(row.close),
+        prev: null,
+        high: Number(row.high ?? row.close),
+        low: Number(row.low ?? row.close),
+        volume: row.volume ?? 0,
+      });
+    } else if (seen.get(t)!.prev === null) {
+      seen.get(t)!.prev = Number(row.close);
+    }
+  }
+
+  const priceMap = new Map<string, Quote>();
+  for (const [ticker, p] of seen) {
+    const previousClose = p.prev ?? p.current;
+    const change = p.current - previousClose;
+    priceMap.set(ticker, {
+      ticker,
+      price: p.current,
+      previousClose,
+      change,
+      changePct: previousClose > 0 ? (change / previousClose) * 100 : 0,
+      dayHigh: p.high,
+      dayLow: p.low,
+      volume: p.volume,
+      timestamp: new Date(),
+    });
+  }
+
+  return priceMap;
 }
 
 // ─── Legacy synchronous API (kept for portfolio.ts compatibility) ─────────────

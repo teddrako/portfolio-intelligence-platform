@@ -7,7 +7,7 @@ import {
   securities,
 } from "@pip/db/schema";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { getQuote, getQuotes } from "./prices";
+import { getQuote, getQuotes, getLatestPricesFromDB } from "./prices";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,7 +105,11 @@ export async function getHoldings(portfolioId: string): Promise<PositionWithMetr
     .where(and(eq(positions.portfolioId, portfolioId), isNull(positions.closedAt)));
 
   const tickers = [...new Set(rows.map((r) => r.ticker))];
-  const quotes  = await getQuotes(tickers);
+  // Prefer prices from seeded DB history; fall back to live provider quotes
+  let quotes = await getLatestPricesFromDB(tickers);
+  if (quotes.size === 0) {
+    quotes = await getQuotes(tickers);
+  }
 
   const withMetrics = rows.map((row) => {
     const shares = Number(row.shares);
@@ -260,7 +264,8 @@ export async function getPositionByTicker(portfolioId: string, ticker: string) {
 
   const shares = Number(row.shares);
   const avgCostBasis = Number(row.avgCostBasis);
-  const quote = await getQuote(row.ticker);
+  const dbPrices = await getLatestPricesFromDB([row.ticker]);
+  const quote = dbPrices.get(row.ticker.toUpperCase()) ?? await getQuote(row.ticker);
   const currentPrice  = quote?.price        ?? avgCostBasis;
   const previousClose = quote?.previousClose ?? currentPrice;
   const marketValue = shares * currentPrice;
