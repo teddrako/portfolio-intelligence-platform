@@ -2,17 +2,16 @@
  * News provider factory.
  *
  * Active provider is selected via the NEWS_PROVIDER env var:
- *   (unset or "mock")  → MockNewsProvider  ← current default
- *   "alpaca"           → AlpacaNewsProvider (not yet implemented)
- *                        requires: ALPACA_API_KEY
- *   "polygon"          → PolygonNewsProvider (not yet implemented)
- *                        requires: POLYGON_API_KEY
- *   "benzinga"         → BenzingaNewsProvider (not yet implemented)
- *                        requires: BENZINGA_API_KEY
+ *   (unset or "mock")  → MockNewsProvider   ← default
+ *   "finnhub"          → FinnhubNewsProvider requires: FINNHUB_API_KEY
+ *   "alpaca"           → (not yet implemented) requires: ALPACA_API_KEY
+ *   "polygon"          → (not yet implemented) requires: POLYGON_API_KEY
+ *   "benzinga"         → (not yet implemented) requires: BENZINGA_API_KEY
  */
 
 import type { INewsProvider } from "./interface";
 import { MockNewsProvider } from "./mock";
+import { FinnhubNewsProvider } from "./finnhub";
 
 let _instance: INewsProvider | null = null;
 
@@ -22,6 +21,16 @@ export function getNewsProvider(): INewsProvider {
   const vendor = (process.env.NEWS_PROVIDER ?? "mock").toLowerCase();
 
   switch (vendor) {
+    case "finnhub": {
+      const key = process.env.FINNHUB_API_KEY;
+      if (!key) {
+        console.warn("[news] FINNHUB_API_KEY not set — falling back to mock provider");
+        _instance = new MockNewsProvider();
+      } else {
+        _instance = new FinnhubNewsProvider(key);
+      }
+      break;
+    }
     // TODO: case "alpaca":   _instance = new AlpacaNewsProvider(process.env.ALPACA_API_KEY!); break;
     // TODO: case "polygon":  _instance = new PolygonNewsProvider(process.env.POLYGON_API_KEY!); break;
     // TODO: case "benzinga": _instance = new BenzingaNewsProvider(process.env.BENZINGA_API_KEY!); break;

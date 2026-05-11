@@ -3,7 +3,7 @@ import { trpc } from "@/trpc/server";
 import type { NewsArticleDTO } from "@pip/api";
 import { NewsFilters } from "./components/NewsFilters";
 
-export const metadata = { title: "News — Portfolio Intelligence" };
+export const metadata = { title: "Intelligence — Portfolio Intelligence" };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,6 +40,20 @@ const CATEGORY_LABELS: Record<string, string> = {
   earnings:     "Earnings",
 };
 
+// ─── Relevance badge ──────────────────────────────────────────────────────────
+
+function relevanceBadge(score: number): string {
+  if (score >= 70) return "bg-indigo-500/20 text-indigo-300";
+  if (score >= 40) return "bg-yellow-500/15 text-yellow-400";
+  return "bg-gray-800 text-gray-500";
+}
+
+function relevanceLabel(score: number): string {
+  if (score >= 70) return "High relevance";
+  if (score >= 40) return "Moderate";
+  return "Low relevance";
+}
+
 // ─── Filter skeleton ──────────────────────────────────────────────────────────
 
 function NewsFiltersSkeleton() {
@@ -61,10 +75,18 @@ function NewsFiltersSkeleton() {
 
 // ─── Article card ─────────────────────────────────────────────────────────────
 
-function ArticleCard({ item }: { item: NewsArticleDTO }) {
+function ArticleCard({
+  item,
+  showRelevance = false,
+}: {
+  item:          NewsArticleDTO;
+  showRelevance?: boolean;
+}) {
+  const hasScore = showRelevance && item.relevanceScore > 0;
+
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-gray-800 bg-gray-900 p-4 transition-colors hover:border-gray-700">
-      {/* Importance dot + category + timestamp */}
+      {/* Top row: importance dot + category + relevance badge + timestamp */}
       <div className="flex items-center gap-2">
         <span
           className={`h-1.5 w-1.5 shrink-0 rounded-full ${IMPORTANCE_DOTS[item.importance]}`}
@@ -73,6 +95,16 @@ function ArticleCard({ item }: { item: NewsArticleDTO }) {
         <span className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
           {CATEGORY_LABELS[item.category] ?? item.category}
         </span>
+
+        {hasScore && (
+          <span
+            className={`rounded px-1.5 py-0.5 text-[9px] font-semibold tabular-nums ${relevanceBadge(item.relevanceScore)}`}
+            title={`Portfolio relevance: ${item.relevanceScore}/100`}
+          >
+            {relevanceLabel(item.relevanceScore)} · {item.relevanceScore}
+          </span>
+        )}
+
         <span className="ml-auto shrink-0 text-[10px] text-gray-600">
           {timeAgo(item.publishedAt)}
         </span>
@@ -90,6 +122,13 @@ function ArticleCard({ item }: { item: NewsArticleDTO }) {
 
       {/* Summary */}
       <p className="line-clamp-2 text-xs leading-relaxed text-gray-500">{item.summary}</p>
+
+      {/* LLM reason — only shown when score is available */}
+      {showRelevance && item.llmReason && (
+        <p className="rounded-md border border-indigo-500/20 bg-indigo-500/5 px-2.5 py-1.5 text-[11px] leading-relaxed text-indigo-300/80">
+          {item.llmReason}
+        </p>
+      )}
 
       {/* Footer: tickers + source + sentiment */}
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
@@ -110,6 +149,17 @@ function ArticleCard({ item }: { item: NewsArticleDTO }) {
         >
           {item.sentiment}
         </span>
+        {showRelevance && item.portfolioImpact && item.portfolioImpact !== "neutral" && (
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+              item.portfolioImpact === "positive"
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "bg-red-500/15 text-red-400"
+            }`}
+          >
+            {item.portfolioImpact === "positive" ? "↑ portfolio" : "↓ portfolio"}
+          </span>
+        )}
       </div>
     </article>
   );
@@ -130,8 +180,11 @@ export default async function NewsPage({
   const caller = await trpc();
 
   let items: NewsArticleDTO[];
-  if (tab === "holdings") {
-    items = await caller.news.forHoldings({ limit: 50 });
+  const isHoldingsTab = tab === "holdings";
+
+  if (isHoldingsTab) {
+    // LLM-scored articles for the user's holdings, sorted by relevance
+    items = await caller.news.forHoldingsWithScores({ limit: 40 });
   } else if (CATEGORY_TABS.has(tab)) {
     items = await caller.news.byCategory({
       category: tab as Parameters<typeof caller.news.byCategory>[0]["category"],
@@ -145,13 +198,22 @@ export default async function NewsPage({
     items = items.filter((n) => n.importance === importance);
   }
 
+  const scoredCount = isHoldingsTab
+    ? items.filter((n) => n.llmReason).length
+    : 0;
+
   return (
     <div className="space-y-5 p-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-100">Market News</h1>
-          <p className="mt-0.5 text-sm text-gray-500">{items.length} articles</p>
+          <h1 className="text-xl font-semibold text-gray-100">Market Intelligence</h1>
+          <p className="mt-0.5 text-sm text-gray-500">
+            {items.length} article{items.length !== 1 ? "s" : ""}
+            {isHoldingsTab && scoredCount > 0 && (
+              <> · <span className="text-indigo-400">{scoredCount} AI-scored</span></>
+            )}
+          </p>
         </div>
       </div>
 
@@ -159,6 +221,17 @@ export default async function NewsPage({
       <Suspense fallback={<NewsFiltersSkeleton />}>
         <NewsFilters />
       </Suspense>
+
+      {/* Holdings tab explainer */}
+      {isHoldingsTab && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-4 py-3">
+          <span className="mt-0.5 text-sm">✦</span>
+          <p className="text-[12px] leading-relaxed text-indigo-300/80">
+            Articles are scored and ranked by AI for relevance to your portfolio holdings.
+            {scoredCount === 0 && " Scoring requires a configured Gemini API key."}
+          </p>
+        </div>
+      )}
 
       {/* Feed */}
       {items.length === 0 ? (
@@ -168,7 +241,11 @@ export default async function NewsPage({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {items.map((item, idx) => (
-            <ArticleCard key={`${item.url}-${idx}`} item={item} />
+            <ArticleCard
+              key={`${item.url}-${idx}`}
+              item={item}
+              showRelevance={isHoldingsTab}
+            />
           ))}
         </div>
       )}
