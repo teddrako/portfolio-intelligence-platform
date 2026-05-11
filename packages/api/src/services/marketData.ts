@@ -1,7 +1,10 @@
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
 import { db } from "@pip/db/db";
 import { securities, priceSnapshots } from "@pip/db/schema";
 import { inArray, sql } from "drizzle-orm";
+
+// v3: instantiate; pass notices to suppress in constructor
+const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 const DELAY_MS = 200;
 const BATCH_SIZE = 100;
@@ -13,9 +16,9 @@ function toDateStr(d: Date): string {
 }
 
 function assetClassFromQuoteType(
-  quoteType?: string,
+  quoteType?: string | null,
 ): "equity" | "etf" | "bond" | "crypto" | "commodity" {
-  switch (quoteType) {
+  switch (quoteType?.toUpperCase()) {
     case "ETF":
     case "MUTUALFUND":
       return "etf";
@@ -38,26 +41,12 @@ export async function fetchSecurityMetadata(tickers: string[]): Promise<void> {
     try {
       await delay(DELAY_MS);
 
-      const priceSummary = await yahooFinance.quoteSummary(upper, {
-        modules: ["price"],
+      const summary = await yf.quoteSummary(upper, {
+        modules: ["price", "assetProfile"],
       });
-      const price = priceSummary.price;
 
-      // assetProfile (sector/industry) is only available for equities
-      let sector: string | null = null;
-      let industry: string | null = null;
-      if (assetClassFromQuoteType(price?.quoteType) === "equity") {
-        try {
-          await delay(DELAY_MS);
-          const profileSummary = await yahooFinance.quoteSummary(upper, {
-            modules: ["assetProfile"],
-          });
-          sector = profileSummary.assetProfile?.sector ?? null;
-          industry = profileSummary.assetProfile?.industry ?? null;
-        } catch {
-          // Some equities also lack assetProfile — not fatal
-        }
-      }
+      const price = summary.price;
+      const profile = summary.assetProfile;
 
       await db
         .insert(securities)
@@ -66,8 +55,8 @@ export async function fetchSecurityMetadata(tickers: string[]): Promise<void> {
           ticker: upper,
           name: price?.longName ?? price?.shortName ?? upper,
           assetClass: assetClassFromQuoteType(price?.quoteType),
-          sector,
-          industry,
+          sector: profile?.sector ?? null,
+          industry: profile?.industry ?? null,
           exchange: price?.exchange ?? null,
           currency: price?.currency ?? "USD",
           marketCap:
@@ -130,7 +119,7 @@ export async function fetchDailyBars(
     try {
       await delay(DELAY_MS);
 
-      const result = await yahooFinance.chart(ticker, {
+      const result = await yf.chart(ticker, {
         period1: startDate,
         period2: endDate,
         interval: "1d",
