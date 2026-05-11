@@ -1,15 +1,17 @@
 /**
  * Manual ingestion trigger — dev/ops use only.
  *
- * POST /api/ingest/prices    → runs ingest-prices job
- * POST /api/ingest/news      → runs ingest-news job
- * POST /api/ingest/calendar  → runs ingest-calendar job
+ * POST /api/ingest/prices        → runs ingest-prices job
+ * POST /api/ingest/news          → runs ingest-news job
+ * POST /api/ingest/calendar      → runs ingest-calendar job
+ * POST /api/ingest/daily-close   → generates daily close reports for all users
  *
- * Protected by the INGEST_SECRET env var (Bearer token).
- * In production, wire these to Vercel Cron or a GitHub Actions schedule instead.
+ * Protected by INGEST_SECRET (Bearer token). In production this secret should
+ * match the CRON_SECRET that Vercel injects into cron requests automatically.
+ * See vercel.json for the cron schedule.
  *
- * Example:
- *   curl -X POST http://localhost:3000/api/ingest/prices \
+ * Example (manual trigger):
+ *   curl -X POST http://localhost:3000/api/ingest/daily-close \
  *        -H "Authorization: Bearer <INGEST_SECRET>"
  */
 
@@ -48,6 +50,11 @@ export async function POST(
       case "calendar": {
         const { ingestCalendar } = await import("@pip/api/jobs/ingest-calendar");
         const result = await ingestCalendar();
+        return NextResponse.json({ ok: true, type, ...result });
+      }
+      case "daily-close": {
+        const { generateDailyClose } = await import("@pip/api/jobs/generate-daily-close");
+        const result = await generateDailyClose();
         return NextResponse.json({ ok: true, type, ...result });
       }
       default:

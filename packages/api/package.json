@@ -19,6 +19,10 @@
       "types": "./src/jobs/ingest-calendar.ts",
       "default": "./src/jobs/ingest-calendar.ts"
     },
+    "./jobs/generate-daily-close": {
+      "types": "./src/jobs/generate-daily-close.ts",
+      "default": "./src/jobs/generate-daily-close.ts"
+    },
     "./email": {
       "types": "./src/lib/email.ts",
       "default": "./src/lib/email.ts"
