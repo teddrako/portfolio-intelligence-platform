@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { index, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const assetClasses = ["equity", "etf", "bond", "crypto", "commodity"] as const;
 export type AssetClass = (typeof assetClasses)[number];
@@ -14,6 +14,7 @@ export const securities = pgTable(
     industry: text("industry"),
     exchange: text("exchange"),
     currency: text("currency").notNull().default("USD"),
+    marketCap: numeric("market_cap", { precision: 20, scale: 2 }),
     description: text("description"),
     logoUrl: text("logo_url"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

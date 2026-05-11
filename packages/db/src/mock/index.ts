@@ -4,7 +4,7 @@ import type { NewsItem } from "../schema/news";
 
 // ─── Securities ───────────────────────────────────────────────────────────────
 
-const SEC_DEFAULTS = { industry: null, description: null, logoUrl: null, updatedAt: new Date("2024-01-01") };
+const SEC_DEFAULTS = { industry: null, marketCap: null, description: null, logoUrl: null, updatedAt: new Date("2024-01-01") };
 
 export const mockSecurities: Security[] = [
   { ...SEC_DEFAULTS, id: "s_nvda", ticker: "NVDA", name: "NVIDIA Corp.", assetClass: "equity", sector: "Technology", exchange: "NASDAQ", currency: "USD", createdAt: new Date("2024-01-01") },
