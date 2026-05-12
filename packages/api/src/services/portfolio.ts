@@ -64,6 +64,16 @@ export type RecentTransaction = {
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
+/** Cheapest possible way to get a portfolio's open position tickers — no price fetching. */
+export async function getPositionTickers(portfolioId: string): Promise<string[]> {
+  const rows = await db
+    .select({ ticker: securities.ticker })
+    .from(positions)
+    .innerJoin(securities, eq(positions.securityId, securities.id))
+    .where(and(eq(positions.portfolioId, portfolioId), isNull(positions.closedAt)));
+  return [...new Set(rows.map((r) => r.ticker))];
+}
+
 export async function getDefaultPortfolio(userId: string) {
   const rows = await db
     .select()

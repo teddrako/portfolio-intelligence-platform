@@ -44,6 +44,11 @@ function getClient(): Redis | null {
   return _client;
 }
 
+// Exported for callers that need raw cache access (e.g. batch quote caching).
+export function getRedisClient(): Redis | null {
+  return getClient();
+}
+
 // ─── Cache-aside ──────────────────────────────────────────────────────────────
 
 /**

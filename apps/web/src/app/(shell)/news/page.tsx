@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { trpc } from "@/trpc/server";
 import type { NewsArticleDTO } from "@pip/api";
 import { NewsFilters } from "./components/NewsFilters";
+import { AutoRefresh } from "@/components/AutoRefresh";
 
 export const metadata = { title: "Intelligence — Portfolio Intelligence" };
 
@@ -65,7 +66,7 @@ function NewsFiltersSkeleton() {
         ))}
       </div>
       <div className="flex items-center gap-1 rounded-lg border border-gray-800 bg-gray-900 p-1">
-        {["All", "High", "Medium"].map((label) => (
+        {["All", "Positive", "Negative", "Neutral"].map((label) => (
           <div key={label} className="rounded px-3 py-1.5 text-xs text-gray-600">{label}</div>
         ))}
       </div>
@@ -174,9 +175,9 @@ const CATEGORY_TABS = new Set(["macro", "earnings", "policy", "rates", "sector"]
 export default async function NewsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; importance?: string }>;
+  searchParams: Promise<{ tab?: string; sentiment?: string }>;
 }) {
-  const { tab = "all", importance = "all" } = await searchParams;
+  const { tab = "all", sentiment = "all" } = await searchParams;
   const caller = await trpc();
 
   let items: NewsArticleDTO[];
@@ -194,8 +195,8 @@ export default async function NewsPage({
     items = await caller.news.list({ limit: 50 });
   }
 
-  if (importance !== "all") {
-    items = items.filter((n) => n.importance === importance);
+  if (sentiment !== "all") {
+    items = items.filter((n) => n.sentiment === sentiment);
   }
 
   const scoredCount = isHoldingsTab
@@ -204,6 +205,7 @@ export default async function NewsPage({
 
   return (
     <div className="space-y-5 p-6">
+      <AutoRefresh intervalMs={60_000} />
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

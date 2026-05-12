@@ -7,7 +7,7 @@
  */
 
 import { getMarketDataProvider } from "../providers/market-data";
-import { withCache } from "../lib/redis";
+import { withCache, getRedisClient } from "../lib/redis";
 import type { Quote, HistoricalBar } from "../providers/types";
 import { db } from "@pip/db/db";
 import { securities, priceSnapshots } from "@pip/db/schema";
@@ -34,18 +34,41 @@ export async function getQuote(ticker: string): Promise<Quote | null> {
 
 /**
  * Batch-fetch quotes for many tickers.
- * Each quote is cached individually for 60 s; only cache misses hit the provider.
+ * Checks Redis per-ticker first; makes ONE batch Yahoo call for all misses.
+ * This is much faster than N parallel individual HTTP calls.
  */
 export async function getQuotes(tickers: string[]): Promise<Map<string, Quote>> {
-  // Parallelise individual cached fetches so cache hits are fast.
-  const entries = await Promise.all(
-    tickers.map(async (t) => [t.toUpperCase(), await getQuote(t)] as const),
-  );
-  const map = new Map<string, Quote>();
-  for (const [ticker, quote] of entries) {
-    if (quote) map.set(ticker, quote);
+  if (tickers.length === 0) return new Map();
+  const upper = tickers.map((t) => t.toUpperCase());
+  const redis = getRedisClient();
+
+  // Check Redis for every ticker in parallel (each GET is sub-millisecond)
+  const cached = redis
+    ? await Promise.all(
+        upper.map(async (t) => {
+          try { return [t, await redis.get<Quote>(`quote:${t}`)] as const; }
+          catch { return [t, null] as const; }
+        }),
+      )
+    : upper.map((t) => [t, null] as const);
+
+  const result = new Map<string, Quote>();
+  const misses: string[] = [];
+  for (const [t, q] of cached) {
+    if (q !== null) result.set(t, q);
+    else misses.push(t);
   }
-  return map;
+
+  if (misses.length > 0) {
+    // Single batch HTTP request to Yahoo Finance for all misses
+    const fresh = await provider.getQuotes(misses);
+    for (const [t, q] of fresh) {
+      result.set(t, q);
+      if (redis) void redis.set(`quote:${t}`, q, { ex: 60 }).catch(() => {});
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -144,6 +167,47 @@ export async function getLatestPricesFromDB(
   }
 
   return priceMap;
+}
+
+/**
+ * Fetches a full chronological price series for each ticker from price_snapshots.
+ * Returns an empty array for any ticker that has no data.
+ * Used by the risk analytics router.
+ */
+export async function getPriceSeriesFromDB(
+  tickers: string[],
+  lookbackDays: number,
+): Promise<Map<string, Array<{ date: string; close: number }>>> {
+  if (tickers.length === 0) return new Map();
+
+  const upper = tickers.map((t) => t.toUpperCase());
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - lookbackDays);
+  const cutoffStr = cutoff.toISOString().split("T")[0]!;
+
+  const rows = await db
+    .select({
+      ticker: securities.ticker,
+      date: priceSnapshots.date,
+      close: priceSnapshots.close,
+    })
+    .from(priceSnapshots)
+    .innerJoin(securities, eq(priceSnapshots.securityId, securities.id))
+    .where(
+      and(
+        inArray(securities.ticker, upper),
+        gte(priceSnapshots.date, cutoffStr),
+      ),
+    )
+    // ASC by date so callers get chronological order without re-sorting
+    .orderBy(securities.ticker, priceSnapshots.date);
+
+  const result = new Map<string, Array<{ date: string; close: number }>>();
+  for (const row of rows) {
+    if (!result.has(row.ticker)) result.set(row.ticker, []);
+    result.get(row.ticker)!.push({ date: row.date, close: Number(row.close) });
+  }
+  return result;
 }
 
 // ─── Legacy synchronous API (kept for portfolio.ts compatibility) ─────────────

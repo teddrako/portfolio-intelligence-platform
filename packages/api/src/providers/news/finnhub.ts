@@ -60,13 +60,39 @@ function heuristicImportance(source: string): Importance {
   return "medium";
 }
 
-function mapFinnhubCategory(cat: string): NewsCategory {
-  switch (cat.toLowerCase()) {
-    case "forex": return "fx";
+function inferCategory(a: FinnhubArticle): NewsCategory {
+  // Finnhub's own category handles a few cases cleanly
+  switch (a.category?.toLowerCase()) {
+    case "forex":  return "fx";
     case "crypto": return "commodities";
     case "merger": return "company";
-    default:       return "macro";
   }
+
+  // Content-based inference from headline + summary
+  const text = `${a.headline} ${a.summary}`.toLowerCase();
+
+  if (/\bfed\b|federal reserve|fomc|rate (cut|hike|pause)|interest rate|treasury yield|\byield\b|basis point|\bbps\b|monetary policy|powell|inflation target|quantitative/.test(text))
+    return "rates";
+
+  if (/tariff|trade war|trade deal|sanction|regulation|legislation|congress|senate|white house|executive order|trade policy|import (duty|tax)|export ban/.test(text))
+    return "policy";
+
+  if (/\bearnings\b|\beps\b|quarterly results|revenue (beat|miss)|guidance (raise|cut|lower|raise)|q[1-4] 20\d\d|fourth quarter|third quarter|second quarter|first quarter|annual results|beat estimates|miss estimates|net income|operating income/.test(text))
+    return "earnings";
+
+  if (/\bdollar\b|euro|yen|pound|yuan|forex|exchange rate|usd\/|eur\/|gbp\/|currency market/.test(text))
+    return "fx";
+
+  if (/crude oil|wti |brent |gold price|\bsilver\b|\bcopper\b|\bopec\b|\bbarrel\b|\bcommodit/.test(text))
+    return "commodities";
+
+  if (/geopolit|\bwar\b|conflict|nato|ukraine|middle east|taiwan strait|china tension/.test(text))
+    return "geopolitical";
+
+  if (/sector|chip stocks|bank stocks|semiconductor stocks|retail sector|biotech sector|pharma sector/.test(text))
+    return "sector";
+
+  return "macro";
 }
 
 function toDateStr(d: Date): string {
@@ -88,7 +114,7 @@ function normalise(a: FinnhubArticle, overrideTicker?: string): NewsItem {
     publishedAt:     new Date(a.datetime * 1000),
     affectedTickers: ticker ? [ticker] : [],
     ticker,
-    category:        mapFinnhubCategory(a.category),
+    category:        inferCategory(a),
     sentiment:       heuristicSentiment(text),
     importance:      heuristicImportance(a.source),
     relevanceScore:  ticker ? 70 : 30,
@@ -132,18 +158,15 @@ export class FinnhubNewsProvider implements INewsProvider {
   }
 
   async getNewsByCategory(category: NewsCategory, limit: number): Promise<NewsItem[]> {
-    // Map our categories to Finnhub's limited set
+    // fx/commodities have dedicated Finnhub endpoints; everything else uses "general"
     const finnhubCat =
-      category === "fx"
-        ? "forex"
-        : category === "commodities"
-          ? "crypto"   // closest available on free tier
-          : "general";
+      category === "fx" ? "forex" : category === "commodities" ? "crypto" : "general";
 
+    // Fetch more than needed so we have enough after filtering by inferred category
     const raw = await this.get<FinnhubArticle[]>(`/news?category=${finnhubCat}`);
     return raw
-      .slice(0, limit)
       .map((a) => normalise(a))
-      .filter((n) => finnhubCat === "general" || n.category === category);
+      .filter((n) => n.category === category)
+      .slice(0, limit);
   }
 }

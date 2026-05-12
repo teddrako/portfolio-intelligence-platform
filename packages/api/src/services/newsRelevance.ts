@@ -131,7 +131,8 @@ export async function scoreArticlesForPortfolio(
 
   const cacheKey = buildCacheKey(articles, holdings);
 
-  return withCache(cacheKey, 300, async () => {
+  // Maps don't survive JSON round-trips through Redis — store as [url, score][] entries
+  const entries = await withCache<Array<[string, LLMScore]>>(cacheKey, 300, async () => {
     const result = new Map<string, LLMScore>();
 
     // Process in chunks of 20 to stay well within context limits
@@ -142,8 +143,10 @@ export async function scoreArticlesForPortfolio(
       for (const [url, score] of scores) result.set(url, score);
     }
 
-    return result;
+    return [...result.entries()];
   });
+
+  return new Map(entries);
 }
 
 async function scoreBatch(

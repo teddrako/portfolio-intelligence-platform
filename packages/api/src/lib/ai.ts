@@ -2,7 +2,17 @@ import { GoogleGenAI } from "@google/genai";
 import type { PositionWithMetrics, PortfolioSummary } from "../services/portfolio";
 import type { ReportType } from "@pip/db/schema";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+// Lazy singleton — created on first use so module load never throws on missing key
+let _ai: GoogleGenAI | null = null;
+function getAI(): GoogleGenAI {
+  if (!_ai) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY environment variable is not set");
+    }
+    _ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return _ai;
+}
 
 export const AI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
@@ -12,13 +22,26 @@ export async function callAI(
   prompt: string,
   _userId?: string,
 ): Promise<{ content: string; tokensUsed: number | null }> {
+  const ai = getAI();
+
   const response = await ai.models.generateContent({
     model: AI_MODEL,
     contents: prompt,
+    config: {
+      // Disable extended thinking — dramatically reduces latency and token cost.
+      // Gemini 2.5 Flash defaults to thinking on; turn it off for reports that
+      // don't require deep multi-step reasoning.
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   });
 
+  const text = response.text;
+  if (!text) {
+    throw new Error("Gemini returned an empty response");
+  }
+
   return {
-    content: response.text ?? "",
+    content: text,
     tokensUsed: response.usageMetadata?.totalTokenCount ?? null,
   };
 }

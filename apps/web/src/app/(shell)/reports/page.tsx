@@ -9,6 +9,8 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import type { ReportDTO } from "@pip/api";
 import { GenerateReportModal } from "./components/GenerateReportModal";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -93,10 +95,88 @@ function ReportCard({ report }: { report: ReportDTO }) {
 
       {/* Expanded content */}
       {expanded && report.content && (
-        <div className="border-t border-gray-800 px-5 py-4">
-          <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
+        <div className="border-t border-gray-800 px-5 py-5">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              h1: ({ children }) => (
+                <h1 className="mb-3 mt-5 first:mt-0 text-base font-semibold text-gray-100 border-b border-gray-800 pb-2">
+                  {children}
+                </h1>
+              ),
+              h2: ({ children }) => (
+                <h2 className="mb-2 mt-5 first:mt-0 text-[13px] font-semibold uppercase tracking-wider text-indigo-400">
+                  {children}
+                </h2>
+              ),
+              h3: ({ children }) => (
+                <h3 className="mb-1.5 mt-4 text-[13px] font-semibold text-gray-200">
+                  {children}
+                </h3>
+              ),
+              p: ({ children }) => (
+                <p className="mb-3 text-[13px] leading-relaxed text-gray-300">
+                  {children}
+                </p>
+              ),
+              ul: ({ children }) => (
+                <ul className="mb-3 space-y-1 pl-4">
+                  {children}
+                </ul>
+              ),
+              ol: ({ children }) => (
+                <ol className="mb-3 space-y-1 pl-4 list-decimal">
+                  {children}
+                </ol>
+              ),
+              li: ({ children }) => (
+                <li className="text-[13px] leading-relaxed text-gray-300 flex gap-2 before:content-['·'] before:text-indigo-500 before:font-bold before:shrink-0">
+                  <span>{children}</span>
+                </li>
+              ),
+              strong: ({ children }) => (
+                <strong className="font-semibold text-gray-100">{children}</strong>
+              ),
+              em: ({ children }) => (
+                <em className="italic text-gray-400">{children}</em>
+              ),
+              table: ({ children }) => (
+                <div className="mb-4 overflow-x-auto rounded-lg border border-gray-800">
+                  <table className="w-full text-[12px]">{children}</table>
+                </div>
+              ),
+              thead: ({ children }) => (
+                <thead className="border-b border-gray-800 bg-gray-800/60">{children}</thead>
+              ),
+              tbody: ({ children }) => (
+                <tbody className="divide-y divide-gray-800/60">{children}</tbody>
+              ),
+              tr: ({ children }) => <tr>{children}</tr>,
+              th: ({ children }) => (
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td className="px-4 py-2.5 text-[12px] text-gray-300 tabular-nums">
+                  {children}
+                </td>
+              ),
+              blockquote: ({ children }) => (
+                <blockquote className="mb-3 border-l-2 border-indigo-500/50 pl-4 text-[13px] italic text-gray-400">
+                  {children}
+                </blockquote>
+              ),
+              hr: () => <hr className="my-4 border-gray-800" />,
+              code: ({ children }) => (
+                <code className="rounded px-1.5 py-0.5 text-[11px] font-mono text-indigo-300 bg-indigo-500/10">
+                  {children}
+                </code>
+              ),
+            }}
+          >
             {report.content}
-          </div>
+          </ReactMarkdown>
         </div>
       )}
     </article>

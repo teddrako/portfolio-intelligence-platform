@@ -1,7 +1,7 @@
 import YahooFinance from "yahoo-finance2";
 import { db } from "@pip/db/db";
 import { securities, priceSnapshots } from "@pip/db/schema";
-import { inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 // v3: instantiate; pass notices to suppress in constructor
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -173,4 +173,56 @@ export async function fetchDailyBars(
       );
     }
   }
+}
+
+/**
+ * Ensures a ticker has 365 days of price history in the DB.
+ * Also ensures SPY is seeded — required for beta calculations in the risk router.
+ * No-op for tickers that already have sufficient history (≥ 30 days).
+ * Safe to call as a fire-and-forget background task.
+ */
+export async function backfillPriceHistory(ticker: string): Promise<void> {
+  const t = ticker.toUpperCase();
+
+  async function countHistory(secId: string): Promise<number> {
+    const rows = await db
+      .select({ id: priceSnapshots.id })
+      .from(priceSnapshots)
+      .where(eq(priceSnapshots.securityId, secId))
+      .limit(30);
+    return rows.length;
+  }
+
+  const tickersToSeed: string[] = [];
+
+  // Check the requested ticker
+  const secRow = await db
+    .select({ id: securities.id })
+    .from(securities)
+    .where(eq(securities.ticker, t))
+    .limit(1);
+
+  if (secRow[0] && (await countHistory(secRow[0].id)) < 30) {
+    tickersToSeed.push(t);
+  }
+
+  // Check SPY benchmark (needed for beta)
+  const spyRow = await db
+    .select({ id: securities.id })
+    .from(securities)
+    .where(eq(securities.ticker, "SPY"))
+    .limit(1);
+
+  if (!spyRow[0]) {
+    await fetchSecurityMetadata(["SPY"]);
+    tickersToSeed.push("SPY");
+  } else if ((await countHistory(spyRow[0].id)) < 30) {
+    tickersToSeed.push("SPY");
+  }
+
+  if (tickersToSeed.length === 0) return;
+
+  console.log(`[backfill] seeding 365d history for: ${tickersToSeed.join(", ")}`);
+  await fetchDailyBars(tickersToSeed, 365);
+  console.log(`[backfill] ✓ done (${tickersToSeed.join(", ")})`);
 }

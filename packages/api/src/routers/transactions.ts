@@ -11,7 +11,6 @@ import {
   securities,
   portfolios,
 } from "@pip/db/schema";
-import { isKnownTicker, SECURITY_NAMES } from "../services/prices";
 import { getRecentTransactions } from "../services/portfolio";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -32,29 +31,49 @@ async function assertPortfolioOwner(portfolioId: string, userId: string) {
   return p;
 }
 
-/** Ensure a security record exists; creates a minimal stub for known tickers. */
+/** Ensure a security record exists; auto-creates via Yahoo Finance for any valid ticker. */
 async function ensureSecurity(ticker: string): Promise<string> {
   const t = ticker.toUpperCase();
+
   const existing = await db
     .select({ id: securities.id })
     .from(securities)
     .where(eq(securities.ticker, t))
     .limit(1);
-  if (existing[0]) return existing[0].id;
 
-  if (!isKnownTicker(t)) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown ticker: ${t}. Add it first.` });
+  if (existing[0]) {
+    // Security exists — kick off background history seed if it's missing
+    triggerBackfill(t);
+    return existing[0].id;
   }
 
-  const id = `sec_${t.toLowerCase()}`;
-  await db.insert(securities).values({
-    id,
-    ticker: t,
-    name: SECURITY_NAMES[t] ?? t,
-    assetClass: "equity",
-    currency: "USD",
-  });
-  return id;
+  // New ticker — fetch metadata from Yahoo Finance
+  const { fetchSecurityMetadata } = await import("../services/marketData");
+  await fetchSecurityMetadata([t]);
+
+  const created = await db
+    .select({ id: securities.id })
+    .from(securities)
+    .where(eq(securities.ticker, t))
+    .limit(1);
+
+  if (!created[0]) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Ticker "${t}" not found. Please verify the symbol is correct.`,
+    });
+  }
+
+  // Seed price history in the background — don't block the transaction response
+  triggerBackfill(t);
+
+  return created[0].id;
+}
+
+function triggerBackfill(ticker: string): void {
+  import("../services/marketData")
+    .then(({ backfillPriceHistory }) => backfillPriceHistory(ticker))
+    .catch((err) => console.warn(`[backfill] failed for ${ticker}:`, err));
 }
 
 /** Upsert the cash balance (delta can be positive or negative). */

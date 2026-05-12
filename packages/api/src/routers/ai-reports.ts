@@ -151,17 +151,22 @@ export const aiReportsRouter = router({
           content = result.content;
           tokensUsed = result.tokensUsed;
         } catch (aiErr) {
+          console.error("[ai-reports] generation failed:", aiErr);
+          const errMsg = aiErr instanceof Error ? aiErr.message : String(aiErr);
           await db
             .update(aiReports)
-            .set({ status: "failed", content: `Generation failed: ${String(aiErr)}` })
+            .set({ status: "failed", content: `Generation failed: ${errMsg}` })
             .where(eq(aiReports.id, reportId));
           posthog.capture({
             distinctId: ctx.userId,
             event: "ai_report_generation_failed",
-            properties: { reportType: input.type, reportId, portfolioId: resolvedPortfolioId },
+            properties: { reportType: input.type, reportId, portfolioId: resolvedPortfolioId, error: errMsg },
           });
-          posthog.captureException(aiErr instanceof Error ? aiErr : new Error(String(aiErr)), ctx.userId);
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI generation failed." });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: errMsg.includes("GEMINI_API_KEY") ? "AI not configured." : "AI generation failed.",
+            cause: aiErr,
+          });
         }
 
         await db

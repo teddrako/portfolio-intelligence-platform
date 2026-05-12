@@ -74,6 +74,19 @@ export const riskRouter = router({
       // Fetch extra days as buffer for weekends / holidays so we hit the target
       const priceSeriesMap = await getPriceSeriesFromDB(allTickers, lookbackDays + 20);
 
+      // If any holding or SPY is missing history, kick off background seeding.
+      // This handles securities added before the auto-backfill was wired up.
+      const thinTickers = allTickers.filter(
+        (t) => (priceSeriesMap.get(t) ?? []).length < 30,
+      );
+      if (thinTickers.length > 0) {
+        import("../services/marketData")
+          .then(({ backfillPriceHistory }) =>
+            Promise.all(thinTickers.map((t) => backfillPriceHistory(t))),
+          )
+          .catch((err) => console.warn("[risk] backfill failed:", err));
+      }
+
       // ── Portfolio & benchmark return series ────────────────────────────────
       const portfolioReturns = computePortfolioReturns(
         holdings.map((h) => ({ ticker: h.ticker, shares: h.shares })),

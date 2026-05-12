@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, router } from "../trpc";
 import { getMacroEvents, getEarningsEvents, getEarningsForPortfolio } from "../services/calendar";
-import { getDefaultPortfolio, getHoldings } from "../services/portfolio";
+import { getDefaultPortfolio, getPositionTickers } from "../services/portfolio";
 import { toMacroEventDTO, toEarningsEventDTO } from "../dto/calendar";
 
 export const calendarRouter = router({
@@ -36,9 +36,9 @@ export const calendarRouter = router({
     .query(async ({ ctx, input }) => {
       const portfolio = await getDefaultPortfolio(ctx.userId);
       if (!portfolio) return [];
-      const holdings = await getHoldings(portfolio.id);
-      const tickers  = holdings.map((h) => h.ticker);
-      const events   = await getEarningsForPortfolio(tickers, input?.days ?? 90);
+      // Use lightweight DB-only query — no need to fetch live prices for the calendar
+      const tickers = await getPositionTickers(portfolio.id);
+      const events  = await getEarningsForPortfolio(tickers, input?.days ?? 90);
       return events.map((e) => toEarningsEventDTO(e, true));
     }),
 });

@@ -1,5 +1,6 @@
 import { trpc } from "@/trpc/server";
 import type { RiskMetricsDTO } from "@pip/api";
+import { AutoRefresh } from "@/components/AutoRefresh";
 
 export const metadata = { title: "Risk & Exposure — Portfolio Intelligence" };
 
@@ -204,7 +205,8 @@ export default async function RiskPage() {
   if (data.daysOfHistory < 10) {
     return (
       <div className="p-6">
-        <EmptyState message="Need more price history. Run the seed script to load market data." />
+        <AutoRefresh intervalMs={10_000} />
+        <EmptyState message="Price history is seeding — this page will update automatically." />
       </div>
     );
   }

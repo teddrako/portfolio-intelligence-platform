@@ -11,4 +11,6 @@ export * from "./news";
 export * from "./price-snapshots";
 export * from "./macro-events";
 export * from "./earnings-events";
+export * from "./financial-statements";
+export * from "./dcf-valuations";
 export * from "./relations";

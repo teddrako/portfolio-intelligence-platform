@@ -103,7 +103,7 @@ export const newsRouter = router({
 
       // Sort newest-first, then take the top N for scoring
       const articles = [...byUrl.values()]
-        .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
         .slice(0, limit);
 
       // Build holding context for the LLM prompt

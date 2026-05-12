@@ -12,3 +12,5 @@ export * from "./schema/news";
 export * from "./schema/price-snapshots";
 export * from "./schema/macro-events";
 export * from "./schema/earnings-events";
+export * from "./schema/financial-statements";
+export * from "./schema/dcf-valuations";

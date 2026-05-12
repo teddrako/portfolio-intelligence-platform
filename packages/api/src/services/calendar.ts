@@ -41,11 +41,20 @@ export async function getEarningsEvents(tickers: string[] = [], days = 90): Prom
     ? `calendar:earnings:${upper.join("-")}:${days}d`
     : `calendar:earnings:all:${days}d`;
 
-  return withCache(key, 900, () =>
+  const events = await withCache(key, 900, () =>
     upper.length > 0
       ? provider.getEarningsEvents(upper, from, to)
       : provider.getAllEarningsEvents(from, to),
   );
+
+  // Deduplicate by ticker+date — guards against provider duplicates in cached responses
+  const seen = new Set<string>();
+  return events.filter((e) => {
+    const k = `${e.ticker}-${e.date}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 /**

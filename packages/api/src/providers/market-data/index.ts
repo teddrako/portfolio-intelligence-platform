@@ -3,6 +3,7 @@
  *
  * Active provider is selected via the MARKET_DATA_PROVIDER env var:
  *   (unset or "mock")  → MockMarketDataProvider  ← current default
+ *   "yahoo"            → YahooMarketDataProvider (no API key required)
  *   "polygon"          → PolygonMarketDataProvider (not yet implemented)
  *                        requires: POLYGON_API_KEY
  *   "alpaca"           → AlpacaMarketDataProvider (not yet implemented)
@@ -25,14 +26,19 @@ export function getMarketDataProvider(): IMarketDataProvider {
   const vendor = (process.env.MARKET_DATA_PROVIDER ?? "mock").toLowerCase();
 
   switch (vendor) {
+    case "yahoo": {
+      const { YahooMarketDataProvider } = require("./yahoo") as typeof import("./yahoo");
+      _instance = new YahooMarketDataProvider();
+      break;
+    }
     // TODO: case "polygon": _instance = new PolygonMarketDataProvider(process.env.POLYGON_API_KEY!); break;
     // TODO: case "alpaca":  _instance = new AlpacaMarketDataProvider(...); break;
     default:
       _instance = new MockMarketDataProvider();
   }
 
-  console.log(`[market-data] using provider: ${_instance.name}`);
-  return _instance;
+  console.log(`[market-data] using provider: ${_instance!.name}`);
+  return _instance!;
 }
 
 export type { IMarketDataProvider } from "./interface";

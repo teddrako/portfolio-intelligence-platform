@@ -198,8 +198,8 @@ export default async function CalendarPage() {
                 {group.label}
               </p>
               <div className="overflow-hidden divide-y divide-gray-800/60 rounded-xl border border-gray-800 bg-gray-900">
-                {group.events.map((evt) => (
-                  <MacroRow key={evt.id} evt={evt} />
+                {group.events.map((evt, i) => (
+                  <MacroRow key={`${evt.id}-${i}`} evt={evt} />
                 ))}
               </div>
             </div>

@@ -17,6 +17,7 @@ import { db } from "@pip/db/db";
 import { portfolios } from "@pip/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { HoldingDTO, PriceBarDTO, PortfolioSummaryDTO, HoldingsWithHistoryDTO } from "../dto/holdings";
+import type { PortfolioSummary } from "../services/portfolio";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,50 @@ export const portfolioRouter = router({
     const portfolio = await getDefaultPortfolio(ctx.userId);
     if (!portfolio) return null;
     return getPortfolioSummary(portfolio.id, ctx.userId);
+  }),
+
+  /**
+   * Dashboard payload — summary + holdings in a single call.
+   * Fetches quotes once instead of twice (avoids the summary+holdings double-fetch).
+   */
+  dashboardData: protectedProcedure.query(async ({ ctx }): Promise<{
+    summary: PortfolioSummary;
+    holdings: Awaited<ReturnType<typeof getHoldings>>;
+  } | null> => {
+    const portfolio = await getDefaultPortfolio(ctx.userId);
+    if (!portfolio) return null;
+
+    const [holdings, cash] = await Promise.all([
+      getHoldings(portfolio.id),
+      getCashBalance(portfolio.id, portfolio.currency),
+    ]);
+
+    const totalMarketValue = holdings.reduce((s, h) => s + h.marketValue, 0);
+    const investedCapital  = holdings.reduce((s, h) => s + h.totalCost, 0);
+    const totalValue       = totalMarketValue + cash;
+    const unrealizedPnl    = totalMarketValue - investedCapital;
+    const unrealizedPnlPct = investedCapital > 0 ? (unrealizedPnl / investedCapital) * 100 : 0;
+    const dailyPnl         = holdings.reduce((s, h) => s + h.dailyPnl, 0);
+    const prevMarketValue  = totalMarketValue - dailyPnl;
+    const dailyPnlPct      = prevMarketValue > 0 ? (dailyPnl / prevMarketValue) * 100 : 0;
+
+    const summary: PortfolioSummary = {
+      portfolioId:      portfolio.id,
+      portfolioName:    portfolio.name,
+      currency:         portfolio.currency,
+      positionCount:    holdings.length,
+      totalValue,
+      investedCapital,
+      cashBalance:      cash,
+      unrealizedPnl,
+      unrealizedPnlPct,
+      dailyPnl,
+      dailyPnlPct,
+      totalReturn:      unrealizedPnl,
+      totalReturnPct:   unrealizedPnlPct,
+    };
+
+    return { summary, holdings };
   }),
 
   /** Holdings (open positions with price-enriched metrics) */

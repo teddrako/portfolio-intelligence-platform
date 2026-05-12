@@ -10,14 +10,14 @@ export const metadata = { title: "Dashboard — Portfolio Intelligence" };
 
 export default async function DashboardPage() {
   const caller = await trpc();
-  const [summary, holdings, recentTxns, news] = await Promise.all([
-    caller.portfolio.summary(),
-    caller.portfolio.holdings(),
+  const [dashData, recentTxns, news] = await Promise.all([
+    caller.portfolio.dashboardData(),
     caller.portfolio.transactions({ limit: 8 }),
     caller.news.list({ limit: 8 }),
   ]);
 
-  if (!summary) return <EmptyPortfolio />;
+  if (!dashData) return <EmptyPortfolio />;
+  const { summary, holdings } = dashData;
 
   const dateStr = new Date().toLocaleDateString("en-US", {
     weekday: "long",

@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/ingest/prices",
+      "schedule": "55 20 * * 1-5"
+    },
+    {
       "path": "/api/ingest/daily-close",
       "schedule": "30 21 * * 1-5"
     }
